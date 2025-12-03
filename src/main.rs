@@ -1,30 +1,53 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let res_part_1_example = Day1::part1("input/day1-part1-example.txt");
-    println!("Day 1, part 1, example: {res_part_1_example}");
-    let res_part_1 = Day1::part1("input/day1-part1.txt");
-    println!("Day 1, part 1: {res_part_1}");
+    // day 1
+    let res_day1_part1_example = Day1::part1("input/day1-part1-example.txt");
+    println!("Day 1, part 1, example: {res_day1_part1_example}");
+    let res_day1_part1 = Day1::part1("input/day1-part1.txt");
+    println!("Day 1, part 1: {res_day1_part1}");
 
-    let res_part_2_example = Day1::part2("input/day1-part1-example.txt");
-    println!("Day 1, part 1, example: {res_part_2_example}");
-    let res_part_2 = Day1::part2("input/day1-part1.txt");
-    println!("Day 1, part 1: {res_part_2}");
+    let res_day1_part2_example = Day1::part2("input/day1-part1-example.txt");
+    println!("Day 1, part 1, example: {res_day1_part2_example}");
+    let res_day1_part2 = Day1::part2("input/day1-part1.txt");
+    println!("Day 1, part 1: {res_day1_part2}");
+
+    // day 2
+    let res_day2_part1_example = Day2::part1("input/day2-part1-example.txt");
+    println!("Day 2, part 1, example: {res_day2_part1_example}");
+    let res_day2_part1 = Day2::part1("input/day2-part1.txt");
+    println!("Day 2, part 1: {res_day2_part1}");
+
+    let res_day2_part2_example = Day2::part2("input/day2-part1-example.txt");
+    println!("Day 2, part 2, example: {res_day2_part2_example}");
+    let res_day2_part2 = Day2::part2("input/day2-part1.txt");
+    println!("Day 2, part 2: {res_day2_part2}");
+
+    // day 3
+    let res_day3_part1_example = Day3::part1("input/day3-part1-example.txt");
+    println!("Day 3, part 1, example: {res_day3_part1_example}");
+    let res_day3_part1 = Day3::part1("input/day3-part1.txt");
+    println!("Day 3, part 1: {res_day3_part1}");
+
+    let res_day3_part2_example = Day3::part2("input/day3-part1-example.txt");
+    println!("Day 3, part 2, example: {res_day3_part2_example}");
+    let res_day3_part2 = Day3::part2("input/day3-part1.txt");
+    println!("Day 3, part 2: {res_day3_part2}");
 
     Ok(())
 }
 
 trait Day {
-    fn part1(path: impl AsRef<std::path::Path>) -> u32;
-    fn part2(path: impl AsRef<std::path::Path>) -> u32;
+    fn part1(path: impl AsRef<std::path::Path>) -> u64;
+    fn part2(path: impl AsRef<std::path::Path>) -> u64;
 }
 
 struct Day1;
 
 impl Day for Day1 {
-    fn part1(path: impl AsRef<std::path::Path>) -> u32 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
         let input = std::fs::read_to_string(path.as_ref()).expect("unable to read file contents");
         input.lines().fold((50, 0), |(mut pointer, mut count), l| {
             let (dir, num) = l.split_at(1);
-            let num = num.parse::<u32>().expect("unable to parse number") % 100;
+            let num = num.parse::<u64>().expect("unable to parse number") % 100;
             match dir {
                 "L" => {
                     pointer = if num > pointer {
@@ -54,11 +77,11 @@ impl Day for Day1 {
         }).1
     }
 
-    fn part2(path: impl AsRef<std::path::Path>) -> u32 {
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
         let input = std::fs::read_to_string(path.as_ref()).expect("unable to read file contents");
         input.lines().fold((50, 0), |(mut pointer, mut count), l| {
             let (dir, num) = l.split_at(1);
-            let mut num = num.parse::<u32>().expect("unable to parse number");
+            let mut num = num.parse::<u64>().expect("unable to parse number");
             count += num / 100;
             num %= 100;
 
@@ -98,5 +121,189 @@ impl Day for Day1 {
             (pointer, count)
         }).1
 
+    }
+}
+
+struct Day2;
+
+impl Day for Day2 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path.as_ref()).expect("unable to read file contents");
+        // even number of digits
+        // 1000-9999
+        // 10-99 = 89 numbers
+        // 
+        // 433984
+        // 434 * 1000 + 434
+        // (lower + 1) * 10^half + (lower + 1)
+        //
+        // 984433
+        // 434 * 1000 + 434
+        // (lower + 1) * 10^half + (lower + 1)
+        //
+        // L: 7180 -> 7272
+        // L: 8071 -> 8080
+        // U: 7180 -> 7171
+        // U: 8071 -> 7979
+        // 
+        // 7779-9594 -> 7878-9494
+        // 94 - 78 + 1 = 17
+        //
+        // odd digits
+        // 998-1012
+        // 1010-1012 L < U
+        // 1010-1010
+        // 1010 - 1010 + 1 = 1
+        // 
+        // 20-990
+        // 20-99
+        // 22-99
+        // 9 - 2 + 1 = 8
+        //
+        // 20-3092
+        // 20-99 and 1000-3092
+        // 22-99 and 1010-3030
+        // (9 - 2 + 1) + (30 - 10 + 1)
+
+        let identify_palindrome = |l: &str, u: &str| -> u64 {
+            let half = l.len() / 2;
+            let start = {
+                let (left, right) = l.split_at(half);
+                let (left, right) = (left.parse::<u64>().unwrap(), right.parse::<u64>().unwrap());
+
+                if left < right { left + 1 } else { left }
+            };
+
+            let end = {
+                let (left, right) = u.split_at(half);
+                let (left, right) = (left.parse::<u64>().unwrap(), right.parse::<u64>().unwrap());
+
+                if left > right { left - 1 } else { left }
+            };
+            
+            // 433433-691691
+            // sum( i * 10^half + i ) for i in 433-691
+            // (10^half + 1) sum(i) for i in 433-691
+            // [a, b]
+            // [0, b - a] + a * (b - a + 1)
+            // (b - a)(b - a + 1) / 2 + ab - a^2 + a
+            // ((b - a)^2 + (b - a) + 2ab - 2a^2 + 2a) / 2
+            // (b^2 + a^2 - 2ab + b - a + 2ab - 2a^2 + 2a) / 2
+            // (b^2 + a^2 + b + a - 2a^2) / 2
+            // (b^2 - a^2 + b + a) / 2
+            // ((b + a)(b - a) + (b + a)) / 2
+            // (b - a)((b + a) + 1) / 2
+            // (b + a)(b - a + 1) / 2
+
+            if start > end {
+                0
+            }
+            else {
+                (10u64.pow(half as u32) + 1) * (end + start) * (end - start + 1) / 2
+            }
+        };
+
+        input.split(',').fold(0, |mut acc, range| {
+            let (mut l, mut u) = range.split_once('-').expect("invalid input. unable to identify range");
+            assert!(l.parse::<u64>().expect("error while parsing lower bound") <= u.parse().expect("error while parsing upper bound"), "lower bound greater than upper bound");
+            l = l.trim_start_matches('0');
+            u = u.trim_start_matches('0');
+
+            if l.len() != u.len() {
+                // 3-8
+                // 4,6,8
+                // 1-5
+                // 2,4
+                // 4-4
+                // 4
+                // if lower is even
+                if l.len() & 1 == 0 {
+                    acc += identify_palindrome(l, "9".repeat(l.len()).as_str());
+                }
+
+                acc += (l.len() + 1..u.len()).filter(|n| n & 1 == 0).map(|n|
+                    // 100100-999999
+                    // 2 -> 9
+                    // 4 -> 90
+                    // 6 -> 900
+                    // 8 -> 9000
+                    9 * 10u64.pow(n as u32 / 2 - 1)
+                ).sum::<u64>();
+
+                // if upper is even
+                if u.len() & 1 == 0 {
+                    let half = u.len() / 2;
+                    let mut start = String::with_capacity(half);
+                    start.push('1');
+                    start.extend(std::iter::repeat_n('0', half - 1));
+
+                    acc += identify_palindrome(start.repeat(2).as_str(), u);
+                }
+            }
+            else if l.len() & 1 == 0 {
+                acc += identify_palindrome(l, u);
+            }
+
+            acc
+        })
+    }
+
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read file contents");
+        input.split(',').fold(0, |acc, range| {
+            let (l, u) = range.split_once('-').expect("unable to read range");
+            let (l, u) = (l.parse::<u64>().expect("error while parsing lower bound"), u.parse().expect("error while parsing upper bound"));
+            assert!(l <= u, "lower bound greater than upper bound");
+
+            (l..=u).filter(|n| {
+                let digits = n.ilog10() + 1;
+                let half_digits = digits / 2;
+                (1..=half_digits).filter(|i| digits % i == 0).any(|i| {
+                    // println!("n: {n}");
+                    let den = 10u64.pow(i);
+                    let repeater = n % den;
+                    let mut num = n / den;
+
+                    while num > 0 {
+                        let digits_in_question = num % den;
+                        if digits_in_question != repeater {
+                            return false;
+                        }
+                        num /= den;
+                    }
+
+                    true
+                })
+            }).sum::<u64>() + acc
+        })
+    }
+}
+
+struct Day3;
+
+impl Day for Day3 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read file contents");
+
+        input.lines().map(|l| {
+            let nums = l.chars().map(|c| c as u64 - '0' as u64).collect::<Vec<u64>>();
+            let (tens_index, tens) = nums[..nums.len() - 1].iter().enumerate().reduce(|acc, a| if a.1 > acc.1 { a } else { acc }).expect("empty iterator");
+            let ones = nums[tens_index + 1..].iter().max().expect("empty iterator");
+            tens * 10  + ones
+        }).sum()
+    }
+
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read file contents");
+
+        input.lines().map(|l| {
+            let nums = l.chars().map(|c| c as u64 - '0' as u64).collect::<Vec<u64>>();
+            assert!(nums.len() >= 12, "not enough batteries");
+            (0..12).fold((0, 0), |(acc, min_idx), i| {
+                // println!("i: {i}, acc: {acc}, min_idx: {min_idx}");
+                let (nxt_idx, jolt) = nums[min_idx..nums.len() - 11 + i].iter().enumerate().reduce(|acc, a| if a.1 > acc.1 { a } else { acc }).expect("empty iterator");
+                (acc + jolt * 10u64.pow((11 - i) as u32), min_idx + nxt_idx + 1)
+            }).0
+        }).sum()
     }
 }
