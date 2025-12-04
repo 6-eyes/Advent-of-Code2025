@@ -32,6 +32,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let res_day3_part2 = Day3::part2("input/day3-part1.txt");
     println!("Day 3, part 2: {res_day3_part2}");
 
+    // day 4
+    let res_day4_part1_example = Day4::part1("input/day4-part1-example.txt");
+    println!("Day 4, part 1, example: {res_day4_part1_example}");
+    let res_day4_part1 = Day4::part1("input/day4-part1.txt");
+    println!("Day 4, part 1: {res_day4_part1}");
+
+    let res_day4_part2_example = Day4::part2("input/day4-part1-example.txt");
+    println!("Day 4, part 2, example: {res_day4_part2_example}");
+    let res_day4_part2 = Day4::part2("input/day4-part1.txt");
+    println!("Day 4, part 2: {res_day4_part2}");
+
     Ok(())
 }
 
@@ -259,7 +270,6 @@ impl Day for Day2 {
                 let digits = n.ilog10() + 1;
                 let half_digits = digits / 2;
                 (1..=half_digits).filter(|i| digits % i == 0).any(|i| {
-                    // println!("n: {n}");
                     let den = 10u64.pow(i);
                     let repeater = n % den;
                     let mut num = n / den;
@@ -300,10 +310,70 @@ impl Day for Day3 {
             let nums = l.chars().map(|c| c as u64 - '0' as u64).collect::<Vec<u64>>();
             assert!(nums.len() >= 12, "not enough batteries");
             (0..12).fold((0, 0), |(acc, min_idx), i| {
-                // println!("i: {i}, acc: {acc}, min_idx: {min_idx}");
                 let (nxt_idx, jolt) = nums[min_idx..nums.len() - 11 + i].iter().enumerate().reduce(|acc, a| if a.1 > acc.1 { a } else { acc }).expect("empty iterator");
                 (acc + jolt * 10u64.pow((11 - i) as u32), min_idx + nxt_idx + 1)
             }).0
         }).sum()
+    }
+}
+
+struct Day4;
+
+impl Day for Day4 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read file contents");
+        let floor = input.lines().map(|l| l.chars().map(|c| match c {
+            '.' => false,
+            '@' => true,
+            _ => panic!("invalid character in map"),
+        }).collect::<Vec<bool>>()).collect::<Vec<Vec<bool>>>();
+
+        let rows = floor.len();
+        let cols = floor.first().expect("empty map").len();
+        
+        (0..rows).fold(0, |acc, r|
+            (0..cols).filter(|&c| floor[r][c]).fold(0, |acc, c|
+                if [0, 1, 2].into_iter().flat_map(|i| [0, 1, 2].into_iter().map(move |j| (i, j))).filter(|&(i, j)|
+                    !(i == 1 && j == 1) && r + i >= 1 && r + i < rows + 1 && c + j >= 1 && c + j < cols + 1 && floor[r + i - 1][c + j - 1]
+                ).count() < 4 {
+                    acc + 1
+                }
+                else {
+                    acc
+                }
+            ) + acc
+        )
+    }
+
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read file contents");
+        let floor = input.lines().map(|l| l.chars().map(|c| match c {
+            '.' => false,
+            '@' => true,
+            _ => panic!("invalid character in map"),
+        }).collect::<Vec<bool>>()).collect::<Vec<Vec<bool>>>();
+
+        let rows = floor.len();
+        let cols = floor.first().expect("empty map").len();
+        
+        let mut set = std::collections::HashSet::new();
+
+        loop {
+            // break if no rolls can be removed
+            let pre = set.len();
+            (0..rows).for_each(|r|
+                (0..cols).filter(|&c| floor[r][c]).for_each(|c|
+                    if [0, 1, 2].into_iter().flat_map(|i| [0, 1, 2].into_iter().map(move |j| (i, j))).filter(|&(i, j)|
+                        !(i == 1 && j == 1) && r + i >= 1 && r + i < rows + 1 && c + j >= 1 && c + j < cols + 1 && !set.contains(&(r + i - 1, c + j - 1)) && floor[r + i - 1][c + j - 1]
+                    ).count() < 4 {
+                        set.insert((r, c));
+                    }
+                )
+            );
+
+            if pre == set.len() {
+                break pre as u64;
+            }
+        }
     }
 }
