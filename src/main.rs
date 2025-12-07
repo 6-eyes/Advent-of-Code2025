@@ -43,6 +43,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let res_day4_part2 = Day4::part2("input/day4-part1.txt");
     println!("Day 4, part 2: {res_day4_part2}");
 
+    // day 5
+    let res_day5_part1_example = Day5::part1("input/day5-part1-example.txt");
+    println!("Day 5, part 1, example: {res_day5_part1_example}");
+    let res_day5_part1 = Day5::part1("input/day5-part1.txt");
+    println!("Day 5, part 1: {res_day5_part1}");
+
+    let res_day5_part2_example = Day5::part2("input/day5-part1-example.txt");
+    println!("Day 5, part 2, example: {res_day5_part2_example}");
+    let res_day5_part2 = Day5::part2("input/day5-part1.txt");
+    println!("Day 5, part 2: {res_day5_part2}");
+
     Ok(())
 }
 
@@ -375,5 +386,79 @@ impl Day for Day4 {
                 break pre as u64;
             }
         }
+    }
+}
+
+struct Day5;
+
+impl Day for Day5 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to recieve output");
+        let (ranges_str, ingridients_str) = input.split_once("\n\n").expect("unabke to split input");
+        let range = ranges_str.lines().fold(Vec::new(), |mut acc, range| {
+            let (start, end) = range.split_once('-').expect("invalid input");
+            let (start, end) = (start.parse::<u64>().expect("invalid start"), end.parse::<u64>().expect("invalid end"));
+            assert!(start <= end, "start should be less then end of range");
+
+            match acc.binary_search_by(|&(s, e)| {
+                if end < s {
+                    std::cmp::Ordering::Less
+                }
+                else if start > e {
+                    std::cmp::Ordering::Greater
+                }
+                else {
+                    std::cmp::Ordering::Equal
+                }
+            }) {
+                Ok(i) => {
+                    let ele = acc.get_mut(i).unwrap();
+                    *ele = (ele.0.min(start), ele.1.max(end));
+                },
+                Err(i) => {
+                    acc.insert(i, (start, end));
+                },
+            }
+
+            acc
+        });
+
+        ingridients_str.lines().filter(|l| {
+            let num = l.parse::<u64>().expect("unable to parse input");
+            range.iter().any(|&(start, end)| num >= start && num <= end)
+        }).count() as u64
+    }
+
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
+        let input  = std::fs::read_to_string(path).expect("unable to recieve ouput");
+        let (ranges_str, _) = input.split_once("\n\n").expect("unable to split input");
+        let mut ranges = ranges_str.lines().map(|range| {
+            let (start, end) = range.split_once('-').expect("invalid input");
+            let (start, end) = (start.parse::<u64>().expect("invalid start"), end.parse::<u64>().expect("invalid end"));
+            assert!(start <= end, "start should be less then end of range");
+            (start, end)
+        }).collect::<Vec<(u64, u64)>>();
+
+        ranges.sort_by_key(|e| e.0);
+
+        let mut last_seen = None;
+        let count = ranges.iter().fold(0, |mut acc, (s, e)| {
+            match last_seen {
+                None => last_seen = Some((s, e)),
+                Some((ls, le)) if s > le => {
+                    acc += le - ls + 1;
+                    last_seen = Some((s, e));
+                },
+                Some((ls, le)) => {
+                    acc += s - ls;
+                    last_seen = Some((s, e.max(le)));
+                }
+            }
+
+            acc
+        });
+
+        let last_seen = last_seen.unwrap();
+        count + last_seen.1 - last_seen.0 + 1
     }
 }
