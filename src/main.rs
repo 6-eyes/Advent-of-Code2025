@@ -65,6 +65,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let res_day6_part2 = Day6::part2("input/day6-part1.txt");
     println!("Day 6, part 2: {res_day6_part2}");
 
+    // day 7
+    let res_day7_part1_example = Day7::part1("input/day7-part1-example.txt");
+    println!("Day 7, part 1, example: {res_day7_part1_example}");
+    let res_day7_part1 = Day7::part1("input/day7-part1.txt");
+    println!("Day 7, part 1: {res_day7_part1}");
+
+    let res_day7_part2_example = Day7::part2("input/day7-part1-example.txt");
+    println!("Day 7, part 2, example: {res_day7_part2_example}");
+    let res_day7_part2 = Day7::part2("input/day7-part1.txt");
+    println!("Day 7, part 2: {res_day7_part2}");
+
     Ok(())
 }
 
@@ -517,5 +528,94 @@ impl Day for Day6 {
                 c => panic!("invalid operator {c}"),
             }.expect("unable to reduce array")
         }).sum()
+    }
+}
+
+struct Day7;
+
+impl Day for Day7 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read input");
+        let mut start = None;
+        let grid = input.lines().enumerate().map(|(r, l)| l.chars().enumerate().map(|(c, s)| {
+            if s == 'S' {
+                start = Some((r, c));
+            }
+            s
+        }).collect::<Vec<char>>()).collect::<Vec<Vec<char>>>();
+
+        assert!(!grid.is_empty() && !grid[0].is_empty(), "no grid found");
+        assert!(start.is_some(), "source position not found");
+
+        let mut source = std::collections::VecDeque::new();
+        source.push_back(start.unwrap());
+
+        let mut visited = std::collections::HashSet::new();
+        visited.insert(start.unwrap());
+
+        let mut count = 0;
+
+
+        while let Some((r, c)) = source.pop_front() {
+            let mut add = |r, c| {
+                if !visited.contains(&(r, c)) {
+                    visited.insert((r, c));
+                    source.push_back((r, c));
+                }
+            };
+
+            if grid[r][c] == '^' {
+                count += 1;
+                add(r, c - 1);
+                add(r, c + 1);
+            }
+            else if r + 1 < grid.len() {
+                    add(r + 1, c);
+            }
+        }
+
+        count
+    }
+
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read input");
+        let mut start = None;
+        let grid = input.lines().enumerate().map(|(r, l)| l.chars().enumerate().map(|(c, s)| {
+            if s == 'S' {
+                start = Some((r, c));
+            }
+            s
+        }).collect::<Vec<char>>()).collect::<Vec<Vec<char>>>();
+
+        assert!(!grid.is_empty() && !grid[0].is_empty(), "no grid found");
+        assert!(start.is_some(), "source position not found");
+        let (r, c) = start.unwrap();
+        
+        let mut cache = std::collections::HashMap::new();
+        Self::get_paths(&grid, r, c, &mut cache)
+    }
+}
+
+impl Day7 {
+    fn get_paths(grid: &[Vec<char>], r: usize, c: usize, cache: &mut std::collections::HashMap<(usize, usize), u64>) -> u64 {
+        if r < grid.len() {
+            if let Some(v) = cache.get(&(r, c)) {
+                *v
+            }
+            else {
+                let res = if grid[r][c] == '^' {
+                    Self::get_paths(grid, r, c - 1, cache) + Self::get_paths(grid, r, c + 1, cache)
+                }
+                else {
+                    Self::get_paths(grid, r + 1, c, cache)
+                };
+
+                cache.insert((r, c), res);
+                res
+            }
+        }
+        else {
+            1
+        }
     }
 }
