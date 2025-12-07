@@ -54,6 +54,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let res_day5_part2 = Day5::part2("input/day5-part1.txt");
     println!("Day 5, part 2: {res_day5_part2}");
 
+    // day 6
+    let res_day6_part1_example = Day6::part1("input/day6-part1-example.txt");
+    println!("Day 6, part 1, example: {res_day6_part1_example}");
+    let res_day6_part1 = Day6::part1("input/day6-part1.txt");
+    println!("Day 6, part 1: {res_day6_part1}");
+
+    let res_day6_part2_example = Day6::part2("input/day6-part1-example.txt");
+    println!("Day 6, part 2, example: {res_day6_part2_example}");
+    let res_day6_part2 = Day6::part2("input/day6-part1.txt");
+    println!("Day 6, part 2: {res_day6_part2}");
+
     Ok(())
 }
 
@@ -460,5 +471,51 @@ impl Day for Day5 {
 
         let last_seen = last_seen.unwrap();
         count + last_seen.1 - last_seen.0 + 1
+    }
+}
+
+struct Day6;
+
+impl Day for Day6 {
+    fn part1(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read input");
+        let input_lines = input.lines().collect::<Vec<&str>>();
+        let numbers = input_lines[..input_lines.len() - 1].iter().map(|l| l.split_whitespace().map(|n| n.parse::<u64>().expect("unable to read input")).collect::<Vec<u64>>()).collect::<Vec<Vec<u64>>>();
+        assert!(!numbers.is_empty(), "no numbers found in homework");
+        
+        input_lines.last().expect("undesirable input").split_whitespace().map(|s| match s.chars().next().expect("no operator found") {
+            '+' => |acc, num| acc + num,
+            '*' => |acc, num| acc * num,
+            c => panic!("invalid operator {c}"),
+        }).enumerate().map(|(i, o)| numbers.iter().map(|r| r[i]).reduce(o).expect("unable to reduce array")).sum()
+    }
+
+    fn part2(path: impl AsRef<std::path::Path>) -> u64 {
+        let input = std::fs::read_to_string(path).expect("unable to read input");
+        let input_lines = input.lines().collect::<Vec<&str>>();
+
+        let numbers = input_lines[..input_lines.len() - 1].iter().map(|l| l.chars().collect::<Vec<char>>()).collect::<Vec<Vec<char>>>();
+        assert!(!numbers.is_empty(), "no numbers found");
+        let len = numbers[0].len();
+
+        let get_num_at_idx = |i| {
+            let num = numbers.iter().map(|l| l.get(i).expect("invalid index")).collect::<String>();
+            num.trim().parse::<u64>().ok()
+        };
+
+
+        input_lines.last().expect("undesirable input").char_indices().filter(|&(_, c)| c == '*' || c == '+').map(|(mut i, c)| {
+            let mut nums = Vec::new();
+            while i < len && let Some(num) = get_num_at_idx(i) {
+                nums.push(num);
+                i += 1;
+            }
+
+            match c {
+                '+' => nums.into_iter().reduce(|acc, e| acc + e),
+                '*' => nums.into_iter().reduce(|acc, e| acc * e),
+                c => panic!("invalid operator {c}"),
+            }.expect("unable to reduce array")
+        }).sum()
     }
 }
