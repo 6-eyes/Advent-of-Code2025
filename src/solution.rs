@@ -596,8 +596,6 @@ impl Solution for Day8 {
             (parse(next()), parse(next()), parse(next()))
         }).collect::<Vec<(u64, u64, u64)>>();
 
-        let n = junction_boxes.len();
-
         let distance = |first: usize, second: usize| junction_boxes[first].0.abs_diff(junction_boxes[second].0).pow(2) + junction_boxes[first].1.abs_diff(junction_boxes[second].1).pow(2) + junction_boxes[first].2.abs_diff(junction_boxes[second].2).pow(2);
         let mut pairs = (0..junction_boxes.len()).flat_map(|first| (first + 1..junction_boxes.len()).map(move |second| (std::cmp::Reverse(distance(first, second)), first, second))).collect::<std::collections::BinaryHeap<(std::cmp::Reverse<u64>, usize, usize)>>();
 
@@ -634,5 +632,132 @@ impl Day8 {
 
     fn merge(circuit: &mut [usize], a: usize, b: usize) {
         circuit[Self::root(circuit, b)] = Self::root(circuit, a);
+    }
+}
+
+pub(crate) struct Day9;
+
+impl Solution for Day9 {
+    fn part_1(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let red_tiles = input.lines().map(|l| {
+            let (x, y) = l.split_once(',').expect("unable to read input");
+            let parse = |r: &str| r.parse::<u64>().expect("unable to parse coordinate number");
+            (parse(x), parse(y))
+        }).collect::<Vec<(u64, u64)>>();
+
+        let (c1, c2) = (0..red_tiles.len()).flat_map(|c1| (c1 + 1..red_tiles.len()).map(move |c2| (c1, c2))).max_by(|&c1, &c2| {
+            let area = |(c1_idx, c2_idx): (usize, usize)| red_tiles[c1_idx].0.abs_diff(red_tiles[c2_idx].0) + red_tiles[c1_idx].1.abs_diff(red_tiles[c2_idx].1);
+            area(c1).cmp(&area(c2))
+        }).expect("no adjacent red tiles found");
+    
+        Box::new((red_tiles[c1].0.abs_diff(red_tiles[c2].0) + 1) * (red_tiles[c1].1.abs_diff(red_tiles[c2].1) + 1))
+    }
+
+    fn part_2(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let red_tiles = input.lines().map(|l| {
+            let (x, y) = l.split_once(',').expect("unable to read input");
+            let parse = |r: &str| r.parse::<u64>().expect("unable to parse coordinate number");
+            (parse(x), parse(y))
+        }).collect::<Vec<(u64, u64)>>();
+
+        // add the first tile to incorporate the last pair of tiles
+        // red_tiles.push(red_tiles.get(0).copied().expect("empty input"));
+
+        assert!(red_tiles.windows(2).chain(std::iter::once([red_tiles.last().copied().unwrap(), red_tiles.first().copied().unwrap()].as_slice())).all(|ele| (ele[0].0 == ele[1].0 && ele[0].1 != ele[1].1) || (ele[0].0 != ele[1].0 && ele[0].1 == ele[1].1)), "tiles doesn't form a polygon");
+        // make a smaller similar map
+        let (x_coords, y_coords) = {
+            let (mut x_coords, mut y_coords): (Vec<u64>, Vec<u64>) = red_tiles.iter().copied().unzip();
+            let sort_and_dedup = |v: &mut Vec<u64>| {
+                v.sort_unstable();
+                v.dedup();
+            };
+
+            sort_and_dedup(&mut x_coords);
+            sort_and_dedup(&mut y_coords);
+
+            (x_coords, y_coords)
+        };
+
+        //  --> x
+        // |
+        // |
+        // v
+        // y
+
+        let (x_len, y_len) = (2 * x_coords.len() - 1, 2 * y_coords.len() - 1);
+        let grid = { // this block builds compressed grid
+            let mut grid = red_tiles.windows(2).chain(std::iter::once([red_tiles.last().copied().unwrap(), red_tiles.first().copied().unwrap()].as_slice())).fold(vec!{ vec!{false; x_len}; y_len}, |mut acc, ele| {
+                // compressed map coordinates
+                let mut iter = ele.iter().map(|(x, y)| (x_coords.binary_search(x).unwrap() * 2, y_coords.binary_search(y).unwrap() * 2));
+                let (x1, y1) = iter.next().unwrap();
+                let (x2, y2) = iter.next().unwrap();
+
+                acc.iter_mut().take(y1.max(y2) + 1).skip(y1.min(y2)).for_each(|row| row.iter_mut().take(x1.max(x2) + 1).skip(x1.min(x2)).for_each(|e| *e = true));
+
+                acc
+            });
+
+            // flood fill the grid. considering the points outside the grid are lesser
+            let mut outer_points = std::collections::HashSet::new();
+            outer_points.insert((-1, -1));
+            let mut queue = std::collections::VecDeque::new();
+            queue.push_back((-1, -1));
+            
+            while let Some((a, b)) = queue.pop_front() {
+                // boundary check
+                [(a + 1, b), (a - 1, b), (a, b - 1), (a, b + 1)].into_iter().for_each(|(y, x)| {
+                    if x < -1 || x > x_len as i32 || y < -1 || y > y_len as i32 || // boundary points
+                        (x > -1 && x < x_len as i32 && y > -1 && y < y_len as i32 && grid[y as usize][x as usize]) || // valid grid points and tile boundary
+                        outer_points.contains(&(y, x)) // already an outside point
+                    {
+                        return;
+                    }
+
+                    outer_points.insert((y, x));
+                    queue.push_back((y, x));
+                });
+            }
+
+            // fill the inner points
+            grid.iter_mut().enumerate().for_each(|(y, row)| row.iter_mut().enumerate().filter(|(x, _)| !outer_points.contains(&(y as i32, *x as i32))).for_each(|(_, col)| *col = true));
+
+            grid
+        };
+
+        // visualize
+        // grid.iter().for_each(|row| {
+        //     row.iter().for_each(|&c| print!("{} ", if c { '#' } else { '.' }));
+        //     println!()
+        // });
+
+        // https://youtu.be/toDrFDh7VNs?si=8_jtANF_JtkgPtBV&t=1546
+        // we use prefix sum array to determine the areas.
+        // if the area is equal to the number of the elements with true in the grid, then the rectangle is valid
+
+        let mut psa = vec!{ vec!{ 0; x_len }; y_len };
+        (0..y_len).for_each(|y| (0..x_len).for_each(|x| {
+            let left = if x > 0 { psa[y][x - 1] } else { 0 };
+            let top = if y > 0 { psa[y - 1][x] } else { 0 };
+            let topleft = if x > 0 && y > 0 { psa[y - 1][x - 1] } else { 0 };
+            let grid = if grid[y][x] { 1 } else { 0 };
+            psa[y][x] = left + top - topleft + grid;
+        }));
+
+        let ans = red_tiles.iter().enumerate().flat_map(|(x, &c1)| red_tiles[x + 1..].iter().map(move |&c2| (c1, c2))).filter(|(c1, c2)| {
+            let compressed_coordinate = |(x, y): &(u64, u64)| (x_coords.binary_search(x).unwrap() * 2, y_coords.binary_search(y).unwrap() * 2);
+            let (mut cx1, mut cy1) = compressed_coordinate(c1);
+            let (mut cx2, mut cy2) = compressed_coordinate(c2);
+
+            (cx1, cx2) = (cx1.min(cx2), cx1.max(cx2));
+            (cy1, cy2) = (cy1.min(cy2), cy1.max(cy2));
+
+
+            let left = if cx1 > 0 { psa[cy2][cx1 - 1] } else { 0 };
+            let top = if cy1 > 0 { psa[cy1 - 1][cx2] } else { 0 };
+            let topleft = if cx1 > 0 && cy1 > 0 { psa[cy1 - 1][cx1 - 1] } else { 0 };
+            psa[cy2][cx2] + topleft - left - top == (cy2 - cy1 + 1) * (cx2 - cx1 + 1)
+        }).map(|(c1, c2)| (c1.0.abs_diff(c2.0) + 1) * (c1.1.abs_diff(c2.1) + 1)).max().unwrap();
+
+        Box::new(ans)
     }
 }
