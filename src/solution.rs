@@ -761,3 +761,217 @@ impl Solution for Day9 {
         Box::new(ans)
     }
 }
+
+pub(crate) struct Day10;
+
+impl Solution for Day10 {
+    fn part_1(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let ans = input.lines().map(|l| {
+            let elements = l.split_whitespace().collect::<Vec<&str>>();
+            let target = elements[0].trim_start_matches('[').trim_end_matches(']').chars().map(|c| match c {
+                '#' => true,
+                '.' => false,
+                c => panic!("invalid character {c} in target light sequence."),
+            }).collect::<Vec<bool>>();
+
+            let buttons = elements[1..elements.len() - 1].iter().map(|e| e.trim_start_matches('(').trim_end_matches(')').split(',').map(|num| num.parse::<usize>().inspect(|&n| assert!(target.len() > n, "button index out of bounds of target sequence")).expect("unable to parse button index sequence")).collect::<Vec<usize>>()).collect::<Vec<Vec<usize>>>();
+
+            // bfs
+            let mut queue = std::collections::VecDeque::new();
+            queue.push_back((vec!{ false; target.len() }, None, 0));
+
+            let mut seen = std::collections::HashSet::new();
+            seen.insert(vec!{ false; target.len() });
+
+            while let Some((state, last_pressed, mut count)) = queue.pop_front() {
+                count += 1;
+
+                for (i, button) in buttons.iter().enumerate().filter(|&(i, _)| last_pressed.is_none_or(|idx| idx == i)) {
+                    let mut new_state = state.clone();
+                    // apply
+                    button.iter().for_each(|&l| new_state[l] = !new_state[l]);
+
+                    if new_state == target {
+                        return count
+                    }
+                    
+                    if !seen.contains(&new_state) {
+                        queue.push_back((new_state.clone(), Some(i), count));
+                        seen.insert(new_state);
+                    }
+                }
+            }
+
+            0
+        }).sum::<u32>();
+
+        Box::new(ans)
+    }
+
+    fn part_2(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let ans = input.lines().skip(29).take(1).map(|l| {
+            let elements = l.split_whitespace().skip(1).collect::<Vec<&str>>();
+            let mut target = elements[elements.len() - 1].trim_start_matches('{').trim_end_matches('}').split(',').map(|n| n.parse::<i32>().expect("unable to parse joltage")).collect::<Vec<i32>>();
+            let (rows, cols) = (target.len(), elements.len() - 1);
+            let mut buttons = elements[..cols].iter().enumerate().fold(vec!{ vec!{ 0; cols }; rows }, |mut acc, (b, l)| {
+                l.trim_start_matches('(').trim_end_matches(')').split(',').map(|n| n.parse::<usize>().expect("unable to parse button input")).for_each(|i| acc[i][b] = 1);
+                acc
+            });
+            println!(); buttons.iter().for_each(|r| { r.iter().for_each(|c| print!("{c} ")); println!(); });
+            println!("target: {target:?}");
+
+            match rows.cmp(&cols) {
+                std::cmp::Ordering::Less => {
+                    // identify max for each button.
+                    let mut max = (0..cols).fold(vec!{ 0; cols }, |mut acc, j| {
+                        acc[j] = (0..rows).filter(|&i| buttons[i][j] == 1).map(|i| target[i]).min().unwrap();
+                        acc
+                    });
+
+                    // these number of elements are iterated for bfs
+                    let mut independent = cols - rows;
+
+                    // gaussian elimination
+                    // all elements in matrix should be integers
+                    for c in 0..cols.min(rows) {
+                        let swap = buttons[c][c] == 0 || buttons[c][c + 1..].iter().any(|e: &i32| e % buttons[c][c] != 0) || target[c] % buttons[c][c] != 0;
+                        if swap {
+                            match (c + 1..rows).find(|&r| buttons[r][c] != 0) {
+                                // swap rows
+                                Some(s) => {
+                                    buttons.swap(c, s);
+                                    // update target
+                                    target.swap(c, s);
+                                },
+                                // swap cols
+                                None => match (c + 1..cols).find(|&n| buttons[c][n] != 0) {
+                                    Some(s) => {
+                                        (0..rows).for_each(|i| (buttons[i][c], buttons[i][s]) = (buttons[i][s], buttons[i][c]));
+                                        // update max
+                                        (max[c], max[s]) = (max[s], max[c]);
+                                    },
+                                    None => {
+                                        assert!(cols - c >= independent);
+                                        independent = cols - c;
+                                        println!("independent_cols: {independent}");
+                                        break;
+                                    }
+                                },
+                            }
+                        }
+
+                        // normalize row
+                        let pivot = buttons[c][c];
+                        buttons[c].iter_mut().for_each(|e| *e /= pivot);
+                        target[c] /= pivot;
+
+                        (0..rows).filter(|&i| i != c).for_each(|i| if buttons[i][c] != 0 {
+                            let multiplier = buttons[i][c];
+                            (c..cols).for_each(|n| buttons[i][n] -= multiplier * buttons[c][n]);
+                            target[i] -= multiplier * target[c];
+                        });
+                    }
+            println!(); buttons.iter().for_each(|r| { r.iter().for_each(|c| print!("{c} ")); println!(); });
+            println!("target: {target:?}");
+
+                    let get_dependent_state = |i: &[i32]| {
+                        assert_eq!(i.len(), independent, "invalid length of independent variables");
+                        (0..cols - independent).map(|r| target[r] - (0..independent).map(|n| buttons[r][cols + n - independent] * i[n]).sum::<i32>()).collect::<Vec<i32>>()
+                    };
+
+                    let mut queue = std::collections::VecDeque::new();
+                    queue.push_back(vec!{0; independent});
+
+                    let mut seen = std::collections::HashSet::new();
+                    seen.insert(vec!{ 0; independent });
+
+                    let mut min = i32::MAX;
+                    while let Some(state) = queue.pop_front() {
+                        for i in 0..independent {
+                            let mut new_state = state.clone();
+                            new_state[i] += 1;
+
+                            if new_state.iter().enumerate().any(|(j, &e)| e > max[cols + j - independent]) || seen.contains(&new_state) {
+                                continue;
+                            }
+
+                            seen.insert(new_state.clone());
+
+                            let dependent_state = get_dependent_state(&new_state);
+                            // println!("checking state: {new_state:?}");
+                            // println!("dep state: {dependent_state:?}");
+                            if dependent_state.iter().all(|&v| v >= 0) {
+                                let sum = dependent_state.iter().sum::<i32>() + new_state.iter().sum::<i32>();
+                                if sum < min {
+                                    min = sum;
+                                }
+                            }
+
+                            queue.push_back(new_state);
+                            // dependent_vars.iter().chain(&new_state).for_each(|e| print!("{e} "));
+                            // println!();
+                        }
+                    }
+
+                    println!("min: {min}");
+
+                    0
+                },
+                std::cmp::Ordering::Equal => {
+                    0
+                },
+                std::cmp::Ordering::Greater => {
+                    0
+                },
+            }
+        }).sum::<i32>();
+
+        Box::new(ans)
+    }
+}
+
+pub(crate) struct Day11;
+
+impl Solution for Day11 {
+    fn part_1(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let map = input.lines().map(|l| {
+            let (i, o) = l.split_once(':').expect("invalid input");
+            (i, o.split_whitespace().collect::<std::collections::HashSet<&str>>())
+        }).collect::<std::collections::HashMap<&str, std::collections::HashSet<&str>>>();
+
+        let mut cache = std::collections::HashMap::new();
+        Box::new(Self::count_paths(&map, "you", "out", &mut cache))
+    }
+
+    fn part_2(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let map = input.lines().map(|l| {
+            let (i, o) = l.split_once(':').expect("invalid input");
+            (i, o.split_whitespace().collect::<std::collections::HashSet<&str>>())
+        }).collect::<std::collections::HashMap<&str, std::collections::HashSet<&str>>>();
+
+        let mut cache = std::collections::HashMap::new();
+        let ans = Self::count_paths(&map, "svr", "fft", &mut cache) * Self::count_paths(&map, "fft", "dac", &mut cache) * Self::count_paths(&map, "dac", "out", &mut cache) +
+            Self::count_paths(&map, "svr", "dac", &mut cache) * Self::count_paths(&map, "dac", "fft", &mut cache) * Self::count_paths(&map, "fft", "out", &mut cache);
+
+        Box::new(ans)
+    }
+}
+
+impl Day11 {
+    fn count_paths<'a>(map: &'a std::collections::HashMap<&str, std::collections::HashSet<&str>>, i: &'a str, o: &'a str, cache: &mut std::collections::HashMap<(&'a str, &'a str), u64>) -> u64 {
+        if i == o {
+            1
+        }
+        else if let Some(&v) = cache.get(&(i, o)) {
+            v
+        }
+        else if let Some(paths) = map.get(i) {
+            let s = paths.iter().map(|p| Self::count_paths(map, p, o, cache)).sum::<u64>();
+            cache.insert((i, o), s);
+            s
+        }
+        else {
+            0
+        }
+    }
+}

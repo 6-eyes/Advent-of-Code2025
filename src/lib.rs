@@ -24,12 +24,28 @@ pub fn init() {
     let part = Part::parse(arg);
 
     let path = match args.next() {
-        Some(arg) if arg == "test" || arg == "t" => format!("input/day{day}-part1-example.txt"),
+        Some(arg) if arg == "test" || arg == "t" => {
+            let path = format!("input/day{day}-part{part}-example.txt");
+            if std::path::Path::new(&path).exists() {
+                path
+            }
+            else {
+                format!("input/day{day}-part1-example.txt")
+            }
+        },
         Some(arg) => {
             eprintln!("Invalid argument {} passed. Run 'cargo run -- 1 test' to run test code", arg);
             std::process::exit(3);
         },
-        None => format!("input/day{day}-part1.txt"),
+        None => {
+            let path = format!("input/day{day}-part{part}.txt");
+            if std::path::Path::new(&path).exists() {
+                path
+            }
+            else {
+                format!("input/day{day}-part1.txt")
+            }
+        },
     };
 
     let input = std::fs::read_to_string(path).unwrap_or_else(|e| {
@@ -75,8 +91,8 @@ fn get_day(day: u8) -> Box<dyn Solution> {
         7 => Box::new(solution::Day7),
         8 => Box::new(solution::Day8),
         9 => Box::new(solution::Day9),
-        // 10 => Box::new(solution::Day10),
-        // 11 => Box::new(solution::Day11),
+        10 => Box::new(solution::Day10),
+        11 => Box::new(solution::Day11),
         // 12 => Box::new(solution::Day12),
         d => {
             eprintln!("Day {d} yet to come!");
