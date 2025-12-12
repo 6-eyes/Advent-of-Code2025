@@ -653,6 +653,7 @@ impl Solution for Day9 {
         Box::new((red_tiles[c1].0.abs_diff(red_tiles[c2].0) + 1) * (red_tiles[c1].1.abs_diff(red_tiles[c2].1) + 1))
     }
 
+    /// reference + credits: https://youtu.be/toDrFDh7VNs?si=8_jtANF_JtkgPtBV&t=1546
     fn part_2(&self, input: String) -> Box<dyn std::fmt::Display> {
         let red_tiles = input.lines().map(|l| {
             let (x, y) = l.split_once(',').expect("unable to read input");
@@ -730,7 +731,6 @@ impl Solution for Day9 {
         //     println!()
         // });
 
-        // https://youtu.be/toDrFDh7VNs?si=8_jtANF_JtkgPtBV&t=1546
         // we use prefix sum array to determine the areas.
         // if the area is equal to the number of the elements with true in the grid, then the rectangle is valid
 
@@ -808,125 +808,53 @@ impl Solution for Day10 {
         Box::new(ans)
     }
 
+    /// reference + credits: https://www.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_2_bifurcate_your_way_to_victory/
     fn part_2(&self, input: String) -> Box<dyn std::fmt::Display> {
-        let ans = input.lines().skip(29).take(1).map(|l| {
+        let ans = input.lines().map(|l| {
             let elements = l.split_whitespace().skip(1).collect::<Vec<&str>>();
-            let mut target = elements[elements.len() - 1].trim_start_matches('{').trim_end_matches('}').split(',').map(|n| n.parse::<i32>().expect("unable to parse joltage")).collect::<Vec<i32>>();
-            let (rows, cols) = (target.len(), elements.len() - 1);
-            let mut buttons = elements[..cols].iter().enumerate().fold(vec!{ vec!{ 0; cols }; rows }, |mut acc, (b, l)| {
-                l.trim_start_matches('(').trim_end_matches(')').split(',').map(|n| n.parse::<usize>().expect("unable to parse button input")).for_each(|i| acc[i][b] = 1);
+            let target = elements[elements.len() - 1].trim_start_matches('{').trim_end_matches('}').split(',').map(|n| n.parse::<usize>().expect("unable to parse joltage")).collect::<Vec<usize>>();
+            let buttons = elements[..elements.len() - 1].iter().map(|e| e.trim_start_matches('(').trim_end_matches(')').split(',').map(|num| num.parse::<usize>().inspect(|&n| assert!(target.len() > n, "button index out of bounds of target sequence")).expect("unable to parse button index sequence")).collect::<Vec<usize>>()).collect::<Vec<Vec<usize>>>();
+
+            let button_combinations = (0..1 << buttons.len()).fold(std::collections::HashMap::new(), |mut acc, mask| {
+                let comb = (0..buttons.len()).filter(|i| mask & (1 << i) != 0).collect::<Vec<usize>>();
+                let v = comb.iter().fold(vec!{ 0; target.len() }, |mut acc, &i| {
+                    buttons[i].iter().for_each(|&j| acc[j] += 1);
+                    acc
+                });
+
+                acc.entry(v).and_modify(|v: &mut usize| *v = comb.len().min(*v)).or_insert(comb.len());
                 acc
             });
-            println!(); buttons.iter().for_each(|r| { r.iter().for_each(|c| print!("{c} ")); println!(); });
-            println!("target: {target:?}");
 
-            match rows.cmp(&cols) {
-                std::cmp::Ordering::Less => {
-                    // identify max for each button.
-                    let mut max = (0..cols).fold(vec!{ 0; cols }, |mut acc, j| {
-                        acc[j] = (0..rows).filter(|&i| buttons[i][j] == 1).map(|i| target[i]).min().unwrap();
-                        acc
-                    });
+            let mut cache = std::collections::HashMap::new();
 
-                    // these number of elements are iterated for bfs
-                    let mut independent = cols - rows;
-
-                    // gaussian elimination
-                    // all elements in matrix should be integers
-                    for c in 0..cols.min(rows) {
-                        let swap = buttons[c][c] == 0 || buttons[c][c + 1..].iter().any(|e: &i32| e % buttons[c][c] != 0) || target[c] % buttons[c][c] != 0;
-                        if swap {
-                            match (c + 1..rows).find(|&r| buttons[r][c] != 0) {
-                                // swap rows
-                                Some(s) => {
-                                    buttons.swap(c, s);
-                                    // update target
-                                    target.swap(c, s);
-                                },
-                                // swap cols
-                                None => match (c + 1..cols).find(|&n| buttons[c][n] != 0) {
-                                    Some(s) => {
-                                        (0..rows).for_each(|i| (buttons[i][c], buttons[i][s]) = (buttons[i][s], buttons[i][c]));
-                                        // update max
-                                        (max[c], max[s]) = (max[s], max[c]);
-                                    },
-                                    None => {
-                                        assert!(cols - c >= independent);
-                                        independent = cols - c;
-                                        println!("independent_cols: {independent}");
-                                        break;
-                                    }
-                                },
-                            }
-                        }
-
-                        // normalize row
-                        let pivot = buttons[c][c];
-                        buttons[c].iter_mut().for_each(|e| *e /= pivot);
-                        target[c] /= pivot;
-
-                        (0..rows).filter(|&i| i != c).for_each(|i| if buttons[i][c] != 0 {
-                            let multiplier = buttons[i][c];
-                            (c..cols).for_each(|n| buttons[i][n] -= multiplier * buttons[c][n]);
-                            target[i] -= multiplier * target[c];
-                        });
-                    }
-            println!(); buttons.iter().for_each(|r| { r.iter().for_each(|c| print!("{c} ")); println!(); });
-            println!("target: {target:?}");
-
-                    let get_dependent_state = |i: &[i32]| {
-                        assert_eq!(i.len(), independent, "invalid length of independent variables");
-                        (0..cols - independent).map(|r| target[r] - (0..independent).map(|n| buttons[r][cols + n - independent] * i[n]).sum::<i32>()).collect::<Vec<i32>>()
-                    };
-
-                    let mut queue = std::collections::VecDeque::new();
-                    queue.push_back(vec!{0; independent});
-
-                    let mut seen = std::collections::HashSet::new();
-                    seen.insert(vec!{ 0; independent });
-
-                    let mut min = i32::MAX;
-                    while let Some(state) = queue.pop_front() {
-                        for i in 0..independent {
-                            let mut new_state = state.clone();
-                            new_state[i] += 1;
-
-                            if new_state.iter().enumerate().any(|(j, &e)| e > max[cols + j - independent]) || seen.contains(&new_state) {
-                                continue;
-                            }
-
-                            seen.insert(new_state.clone());
-
-                            let dependent_state = get_dependent_state(&new_state);
-                            // println!("checking state: {new_state:?}");
-                            // println!("dep state: {dependent_state:?}");
-                            if dependent_state.iter().all(|&v| v >= 0) {
-                                let sum = dependent_state.iter().sum::<i32>() + new_state.iter().sum::<i32>();
-                                if sum < min {
-                                    min = sum;
-                                }
-                            }
-
-                            queue.push_back(new_state);
-                            // dependent_vars.iter().chain(&new_state).for_each(|e| print!("{e} "));
-                            // println!();
-                        }
-                    }
-
-                    println!("min: {min}");
-
-                    0
-                },
-                std::cmp::Ordering::Equal => {
-                    0
-                },
-                std::cmp::Ordering::Greater => {
-                    0
-                },
-            }
-        }).sum::<i32>();
+            Self::find_cost(&button_combinations, target, &mut cache)
+        }).sum::<usize>();
 
         Box::new(ans)
+    }
+}
+
+impl Day10 {
+    fn find_cost(combinations: &std::collections::HashMap<Vec<usize>, usize>, target: Vec<usize>, cache: &mut std::collections::HashMap<Vec<usize>, usize>) -> usize {
+        if target.iter().all(|&e| e == 0) {
+            return 0;
+        }
+
+        if let Some(&v) = cache.get(&target) {
+            return v;
+        }
+
+        let mut ans = u32::MAX as usize;
+        for (combination, cost) in combinations {
+            if combination.iter().zip(target.as_slice()).all(|(i, j)| i <= j && i % 2 == j % 2) {
+                let new_target = combination.iter().zip(target.as_slice()).map(|(i, j)| (j - i) / 2).collect::<Vec<usize>>();
+                ans = ans.min(cost + 2 * Self::find_cost(combinations, new_target, cache));
+            }
+        }
+
+        cache.insert(target, ans);
+        ans
     }
 }
 
