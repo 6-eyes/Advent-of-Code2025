@@ -975,3 +975,33 @@ impl Day11 {
         }
     }
 }
+
+pub(crate) struct Day12;
+
+impl Solution for Day12 {
+    fn part_1(&self, input: String) -> Box<dyn std::fmt::Display> {
+        let elements = input.split("\n\n").collect::<Vec<&str>>();
+        let presents = elements[0..elements.len() - 1].iter().map(|present| 
+            present.lines().skip(1).enumerate().flat_map(|(r, l)| l.char_indices().filter(|&(_, ch)| ch == '#').map(move |(c, _)| (r, c))).collect::<std::collections::HashSet<(usize, usize)>>()
+        ).collect::<Vec<std::collections::HashSet<(usize, usize)>>>();
+
+        let ans = elements[elements.len() - 1].lines().filter(|l| {
+            let (dim, present_count) = l.split_once(": ").expect("unable to read input");
+            let (x, y) = {
+                let (x, y) = dim.split_once('x').expect("unable to read dimensions");
+                (x.parse::<usize>().expect("unable to parse x ccordinate"), y.parse::<usize>().expect("unable to parse y coordinate"))
+            };
+
+            let present_count = present_count.split_whitespace().map(|e| e.parse::<usize>().expect("unable to read present count")).collect::<Vec<usize>>();
+            let total_space = x * y;
+            let present_space = present_count.iter().enumerate().map(|(i, c)| c * presents[i].len()).sum::<usize>();
+            total_space > present_space // LOL!!
+        }).count();
+
+        Box::new(ans)
+    }
+
+    fn part_2(&self, _: String) -> Box<dyn std::fmt::Display> {
+        todo!("None")
+    }
+}

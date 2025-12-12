@@ -93,7 +93,7 @@ fn get_day(day: u8) -> Box<dyn Solution> {
         9 => Box::new(solution::Day9),
         10 => Box::new(solution::Day10),
         11 => Box::new(solution::Day11),
-        // 12 => Box::new(solution::Day12),
+        12 => Box::new(solution::Day12),
         d => {
             eprintln!("Day {d} yet to come!");
             std::process::exit(6);
